@@ -1,0 +1,14 @@
+{
+    "1173022940258902136": {
+        "Channel": "member-join",
+        "Message": "Hello, thanks for joining our server! Be sure to read the rules!",
+        "AutoRole": "member",
+        "ImageUrl": "https://media1.tenor.com/m/fYF6aBd78fUAAAAC/bem-vindo-welcome.gif"
+    },
+    "978743120227369032": {
+        "Channel": "\u231c\ud83d\udc64\u231f\u30fbwelcome",
+        "Message": "Hello, thanks for joining our server! Be sure to read the rules!",
+        "AutoRole": "members",
+        "ImageUrl": "https://media1.tenor.com/m/Z25t-Dm102AAAAAC/welcome.gif"
+    }
+}

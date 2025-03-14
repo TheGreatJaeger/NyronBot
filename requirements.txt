@@ -1,0 +1,11 @@
+discord.py[voice]
+discord
+yt-dlp
+ffmpeg
+python-dotenv
+asyncio
+numpy
+numexpr
+webdriver_manager
+deep-translator
+google-search-results
