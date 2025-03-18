@@ -44,15 +44,19 @@ async def on_guild_remove(guild):
     with open("cogs/jsonfiles/prefixes.json", "w") as f:
         json.dump(prefix, f, indent=4)
 
-@client.command()
-async def setprefix(ctx, *, newprefix: str):
+@app_commands.command(name="setprefix", description="Set a custom prefix for this server.")
+async def setprefix(interaction: discord.Interaction, newprefix: str):
     with open("cogs/jsonfiles/prefixes.json", "r") as f:
         prefix = json.load(f)
 
-    prefix[str(ctx.guild.id)] = newprefix
+    prefix[str(interaction.guild.id)] = newprefix
 
     with open("cogs/jsonfiles/prefixes.json", "w") as f:
         json.dump(prefix, f, indent=4)
+    
+    await interaction.response.send_message(f"✅ Prefix changed to `{newprefix}`", ephemeral=True)
+
+client.tree.add_command(setprefix)
 
 #bot status
 bot_status = cycle(["!help", "Dota 2", "Getting new devices..", "Developed by Squeeze"])
