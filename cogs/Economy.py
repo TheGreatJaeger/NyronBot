@@ -21,8 +21,9 @@ class Economy(commands.Cog):
     async def cooldown_message(self, ctx):
         retry_after = ctx.command.get_cooldown_retry_after(ctx)
         await ctx.send(f"⏳ {ctx.author.mention}, you need to wait {int(retry_after)} seconds before using this command again!")
-        
+          
     @app_commands.command(name="balance", description="Check your balance")
+    @app_commands.checks.cooldown(1, 10, key=lambda i: (i.user.id))
     async def balance(self, interaction: discord.Interaction, member: discord.Member = None):
         """Check user balance"""
         with open("cogs/jsonfiles/eco.json", "r") as f:
@@ -42,8 +43,9 @@ class Economy(commands.Cog):
         embed.add_field(name="Deposited Balance:", value=f"${user_eco[str(member.id)]['Deposited']}.", inline=False)
 
         await interaction.response.send_message(embed=embed)
-
+        
     @app_commands.command(name="beg", description="Try your luck and beg for money")
+    @app_commands.checks.cooldown(1, 300, key=lambda i: (i.user.id))
     async def beg(self, interaction: discord.Interaction):
         """Beg for money"""
         with open("cogs/jsonfiles/eco.json", "r") as f:
@@ -69,8 +71,9 @@ class Economy(commands.Cog):
             json.dump(user_eco, f, indent=4)
 
         await interaction.response.send_message(embed=embed)
-
+        
     @app_commands.command(name="work", description="Work and earn money")
+    @app_commands.checks.cooldown(1, 300, key=lambda i: (i.user.id))
     async def work(self, interaction: discord.Interaction):
         """Earn money by working"""
         with open("cogs/jsonfiles/eco.json", "r") as f:
@@ -93,8 +96,9 @@ class Economy(commands.Cog):
             json.dump(user_eco, f, indent=4)
 
         await interaction.response.send_message(embed=embed)
-
+        
     @app_commands.command(name="steal", description="Try to steal money from another user")
+    @app_commands.checks.cooldown(1, 300, key=lambda i: (i.user.id))
     async def steal(self, interaction: discord.Interaction, member: discord.Member):
         """Steal money from another user"""
         with open("cogs/jsonfiles/eco.json", "r") as f:
@@ -131,8 +135,9 @@ class Economy(commands.Cog):
             json.dump(user_eco, f, indent=4)
 
         await interaction.response.send_message(embed=embed)
-
+        
     @app_commands.command(name="deposit", description="Deposit money into your bank")
+    @app_commands.checks.cooldown(1, 300, key=lambda i: (i.user.id))
     async def deposit(self, interaction: discord.Interaction, amount: int):
         """Deposit money into the bank"""
         with open("cogs/jsonfiles/eco.json", "r") as f:
@@ -153,8 +158,9 @@ class Economy(commands.Cog):
             json.dump(user_eco, f, indent=4)
 
         await interaction.response.send_message(f"🏦 You deposited **${amount}** into your bank.")
-
+	
     @app_commands.command(name="withdraw", description="Withdraw money from your bank")
+    @app_commands.checks.cooldown(1, 300, key=lambda i: (i.user.id))
     async def withdraw(self, interaction: discord.Interaction, amount: int):
         """Withdraw money from the bank"""
         with open("cogs/jsonfiles/eco.json", "r") as f:
