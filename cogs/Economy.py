@@ -1,5 +1,6 @@
 import discord
 from discord.ext import commands
+from discord import app_commands
 import json
 import random
 
@@ -21,181 +22,159 @@ class Economy(commands.Cog):
         retry_after = ctx.command.get_cooldown_retry_after(ctx)
         await ctx.send(f"⏳ {ctx.author.mention}, you need to wait {int(retry_after)} seconds before using this command again!")
         
-    @commands.cooldown(1, 10, commands.BucketType.user)
-    @commands.command(aliases=["bal", "money"])
-    async def balance(self, ctx, member: discord.Member = None):
+    @app_commands.command(name="balance", description="Check your balance")
+    async def balance(self, interaction: discord.Interaction, member: discord.Member = None):
+        """Check user balance"""
         with open("cogs/jsonfiles/eco.json", "r") as f:
             user_eco = json.load(f)
 
-        if member is None:
-            member = ctx.author
+        member = member or interaction.user
 
         if str(member.id) not in user_eco:
-            user_eco[str(member.id)] = {
-                "Balance": 100,
-                "Deposited": 0
-            }
-            with open("cogs/jsonfiles/eco.json", "w") as f:
-                json.dump(user_eco, f, indent=4)
+            user_eco[str(member.id)] = {"Balance": 100, "Deposited": 0}
 
-        if "Deposited" not in user_eco[str(member.id)]:
-            user_eco[str(member.id)]["Deposited"] = 0
-
-        eco_embed = discord.Embed(
+        embed = discord.Embed(
             title=f"{member.name}'s Current Balance",
             description="The current balance of this user.",
             color=discord.Color.green()
         )
-        eco_embed.add_field(name="Current Balance:", value=f"${user_eco[str(member.id)]['Balance']}.", inline=False)
-        eco_embed.add_field(name="Deposited Balance:", value=f"${user_eco[str(member.id)]['Deposited']}.", inline=False)
-        eco_embed.set_footer(
-            text="Want to increase balance? Try running some economy-based commands!",
-            icon_url=None
-        )
+        embed.add_field(name="Current Balance:", value=f"${user_eco[str(member.id)]['Balance']}.", inline=False)
+        embed.add_field(name="Deposited Balance:", value=f"${user_eco[str(member.id)]['Deposited']}.", inline=False)
 
-        await ctx.send(embed=eco_embed)
+        await interaction.response.send_message(embed=embed)
 
-    @commands.cooldown(1, 300, commands.BucketType.user)
-    @commands.command()
-    async def beg(self, ctx):
+    @app_commands.command(name="beg", description="Try your luck and beg for money")
+    async def beg(self, interaction: discord.Interaction):
+        """Beg for money"""
         with open("cogs/jsonfiles/eco.json", "r") as f:
             user_eco = json.load(f)
 
-        if str(ctx.author.id) not in user_eco:
-            user_eco[str(ctx.author.id)] = {"Balance": 100}
+        user_id = str(interaction.user.id)
+        if user_id not in user_eco:
+            user_eco[user_id] = {"Balance": 100}
 
-        cur_bal = user_eco[str(ctx.author.id)]["Balance"]
         amount = random.randint(-10, 30)
-        new_bal = cur_bal + amount
+        user_eco[user_id]["Balance"] += amount
 
-        if cur_bal > new_bal:
-            eco_embed = discord.Embed(
-                title="Oh No! - You've been robbed!",
-                description="A group of robbers saw opportunity in taking advantage of you.",
-                color=discord.Color.red()
-            )
-            eco_embed.add_field(name="New Balance:", value=f"${new_bal}", inline=False)
-            eco_embed.set_footer(text="Should probably beg in a nicer part of town ...", icon_url=None)
-
-        elif cur_bal < new_bal:
-            eco_embed = discord.Embed(
-                title="Oh Sweet Green!",
-                description="Some kind souls out there have given you what they could.",
-                color=discord.Color.green()
-            )
-            eco_embed.add_field(name="New Balance:", value=f"${new_bal}", inline=False)
-            eco_embed.set_footer(text="Want more? Wait 1 hour to run this command again, or try some others!", icon_url=None)
-
+        if amount > 0:
+            message = f"💰 Some kind souls gave you **${amount}**!"
+        elif amount < 0:
+            message = f"💸 Oh no! You got robbed and lost **${abs(amount)}**!"
         else:
-            eco_embed = discord.Embed(
-                title="Awh That Sucks!",
-                description="Looks like begging didn't get you anywhere today.",
-                color=discord.Color.green()
-            )
-            eco_embed.set_footer(text="Want more? Wait 1 hour to run this command again, or try some others!", icon_url=None)
+            message = "😞 You got nothing this time."
 
-        await ctx.send(embed=eco_embed)
+        embed = discord.Embed(title="Begging Result", description=message, color=discord.Color.random())
 
-        user_eco[str(ctx.author.id)]["Balance"] += amount
         with open("cogs/jsonfiles/eco.json", "w") as f:
             json.dump(user_eco, f, indent=4)
-            
-    @commands.cooldown(1, 300, commands.BucketType.user)
-    @commands.command()
-    async def work(self, ctx):
+
+        await interaction.response.send_message(embed=embed)
+
+    @app_commands.command(name="work", description="Work and earn money")
+    async def work(self, interaction: discord.Interaction):
+        """Earn money by working"""
         with open("cogs/jsonfiles/eco.json", "r") as f:
             user_eco = json.load(f)
 
-        if str(ctx.author.id) not in user_eco:
-            user_eco[str(ctx.author.id)] = {"Balance": 100, "Deposited": 0}
+        user_id = str(interaction.user.id)
+        if user_id not in user_eco:
+            user_eco[user_id] = {"Balance": 100, "Deposited": 0}
 
         amount = random.randint(100, 350)
-        user_eco[str(ctx.author.id)]["Balance"] += amount
+        user_eco[user_id]["Balance"] += amount
+
+        embed = discord.Embed(
+            title="Work Result",
+            description=f"🛠 You worked and earned **${amount}**!",
+            color=discord.Color.green()
+        )
 
         with open("cogs/jsonfiles/eco.json", "w") as f:
             json.dump(user_eco, f, indent=4)
 
-        eco_embed = discord.Embed(
-            title="Phew!",
-            description="After a tiring shift, here's what you earned!",
-            color=discord.Color.green()
-        )
-        eco_embed.add_field(name="Earnings:", value=f"${amount}", inline=False)
-        eco_embed.add_field(name="New Balance:", value=f"${user_eco[str(ctx.author.id)]['Balance']}.", inline=False)
-        eco_embed.set_footer(
-            text="Want more? Wait 1 hour to run this command again, or try some others!",
-            icon_url=None
-        )
+        await interaction.response.send_message(embed=embed)
 
-        await ctx.send(embed=eco_embed)
-
-    @commands.cooldown(1, 300, commands.BucketType.user)
-    @commands.command()
-    async def steal(self, ctx, member: discord.Member):
+    @app_commands.command(name="steal", description="Try to steal money from another user")
+    async def steal(self, interaction: discord.Interaction, member: discord.Member):
+        """Steal money from another user"""
         with open("cogs/jsonfiles/eco.json", "r") as f:
             user_eco = json.load(f)
 
-        steal_probability = random.randint(0, 1)
+        user_id = str(interaction.user.id)
+        target_id = str(member.id)
 
-        if steal_probability == 1:
+        if user_id not in user_eco:
+            user_eco[user_id] = {"Balance": 100}
+        if target_id not in user_eco:
+            user_eco[target_id] = {"Balance": 100}
+
+        steal_success = random.choice([True, False])
+
+        if steal_success:
             amount = random.randint(1, 100)
+            user_eco[user_id]["Balance"] += amount
+            user_eco[target_id]["Balance"] -= amount
 
-            if str(ctx.author.id) not in user_eco:
-                user_eco[str(ctx.author.id)] = {"Balance": 100}
-
-            if str(member.id) not in user_eco:
-                user_eco[str(member.id)] = {"Balance": 100}
-
-            user_eco[str(ctx.author.id)]["Balance"] += amount
-            user_eco[str(member.id)]["Balance"] -= amount
-
-            with open("cogs/jsonfiles/eco.json", "w") as f:
-                json.dump(user_eco, f, indent=4)
-
-            await ctx.send(f"{ctx.author.mention}, You have stolen ${amount} from {member.mention}! Be sure to keep it safe as they may be looking for revenge...")
-
+            embed = discord.Embed(
+                title="Stealing Success!",
+                description=f"🕵️‍♂️ You stole **${amount}** from {member.mention}!",
+                color=discord.Color.red()
+            )
         else:
-            await ctx.send("Uh oh.. You did not get to steal from this user, better luck next time..")
+            embed = discord.Embed(
+                title="Stealing Failed!",
+                description="🚔 You got caught and failed to steal!",
+                color=discord.Color.red()
+            )
 
-    @commands.cooldown(1, 300, commands.BucketType.user)
-    @commands.command(aliases=["dep", "bank"])
-    async def deposit(self, ctx, amount: int):
+        with open("cogs/jsonfiles/eco.json", "w") as f:
+            json.dump(user_eco, f, indent=4)
+
+        await interaction.response.send_message(embed=embed)
+
+    @app_commands.command(name="deposit", description="Deposit money into your bank")
+    async def deposit(self, interaction: discord.Interaction, amount: int):
+        """Deposit money into the bank"""
         with open("cogs/jsonfiles/eco.json", "r") as f:
             user_eco = json.load(f)
 
-        if str(ctx.author.id) not in user_eco:
-            user_eco[str(ctx.author.id)] = {"Balance": 100, "Deposited": 0}
+        user_id = str(interaction.user.id)
+        if user_id not in user_eco:
+            user_eco[user_id] = {"Balance": 100, "Deposited": 0}
 
-        if amount > user_eco[str(ctx.author.id)]["Balance"]:
-            await ctx.send("Cannot deposit this amount because your balance does not have the sufficient funds.")
-        else:
-            user_eco[str(ctx.author.id)]["Deposited"] += amount
-            user_eco[str(ctx.author.id)]["Balance"] -= amount
+        if amount > user_eco[user_id]["Balance"]:
+            await interaction.response.send_message("❌ You don't have enough money to deposit.", ephemeral=True)
+            return
 
-            with open("cogs/jsonfiles/eco.json", "w") as f:
-                json.dump(user_eco, f, indent=4)
+        user_eco[user_id]["Balance"] -= amount
+        user_eco[user_id]["Deposited"] += amount
 
-            await ctx.send(f"You have deposited ${amount} into your bank. This money is now safe and only you can touch it.")
+        with open("cogs/jsonfiles/eco.json", "w") as f:
+            json.dump(user_eco, f, indent=4)
 
-    @commands.cooldown(1, 300, commands.BucketType.user)
-    @commands.command(aliases=["wd"])
-    async def withdraw(self, ctx, amount: int):
+        await interaction.response.send_message(f"🏦 You deposited **${amount}** into your bank.")
+
+    @app_commands.command(name="withdraw", description="Withdraw money from your bank")
+    async def withdraw(self, interaction: discord.Interaction, amount: int):
+        """Withdraw money from the bank"""
         with open("cogs/jsonfiles/eco.json", "r") as f:
             user_eco = json.load(f)
 
-        if str(ctx.author.id) not in user_eco:
-            user_eco[str(ctx.author.id)] = {"Balance": 100, "Deposited": 0}
+        user_id = str(interaction.user.id)
+        if user_id not in user_eco:
+            user_eco[user_id] = {"Balance": 100, "Deposited": 0}
 
-        if amount > user_eco[str(ctx.author.id)]["Deposited"]:
-            await ctx.send("Cannot withdraw this amount because your bank does not have it.")
-        else:
-            user_eco[str(ctx.author.id)]["Deposited"] -= amount
-            user_eco[str(ctx.author.id)]["Balance"] += amount
+        if amount > user_eco[user_id]["Deposited"]:
+            await interaction.response.send_message("❌ You don't have enough money in your bank.", ephemeral=True)
+            return
 
-            with open("cogs/jsonfiles/eco.json", "w") as f:
-                json.dump(user_eco, f, indent=4)
+        user_eco[user_id]["Deposited"] -= amount
+        user_eco[user_id]["Balance"] += amount
 
-            await ctx.send(f"You have withdrawn ${amount} from your bank.")
+        with open("cogs/jsonfiles/eco.json", "w") as f:
+            json.dump(user_eco, f, indent=4)
+
+        await interaction.response.send_message(f"🏧 You withdrew **${amount}** from your bank.")
             
     @commands.Cog.listener()
     async def on_command_error(self, ctx, error):

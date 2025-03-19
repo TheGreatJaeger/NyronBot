@@ -1,5 +1,6 @@
 import discord
 from discord.ext import commands
+from discord import app_commands
 from deep_translator import GoogleTranslator  # New import
 
 class Translator(commands.Cog):
@@ -34,12 +35,14 @@ class Translator(commands.Cog):
             self.message_history[channel_id].pop(0)
 
     # Command to translate specific text
-    @commands.command()
-    async def translate(self, ctx, lang: str, *, text: str):
+    @app_commands.command(name="translate", description="Translates text into the specified language")
+    async def translate(self, interaction: discord.Interaction, lang: str, text: str):
         """Translates text into the specified language"""
-        translated_text = self.translate_text(text, lang)
-        await ctx.send(f"**Translation to {lang}:** {translated_text}")
-
+        try:
+            translated = self.translator.translate(text, dest=lang)
+            await interaction.response.send_message(f"**Translation to {lang}:** {translated.text}", ephemeral=True)
+        except Exception as e:
+            await interaction.response.send_message(f"❌ Translation error: {str(e)}", ephemeral=True)
 # Load the Cog
 async def setup(bot):
     await bot.add_cog(Translator(bot))

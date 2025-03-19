@@ -33,7 +33,7 @@ class AppCommands(commands.Cog):
 
     @app_commands.command(name="about", description="Read everything about the bot!")
     async def hello(self, interaction: discord.Interaction):
-        await interaction.response.send_message("Hello, I'm NyronBot! I can do a lot of cool things. Type !help and you'll see something cool :)")
+        await interaction.response.send_message("Hello, I'm NyronBot! I can do a lot of cool things. Type /help and you'll see something cool :)")
 
     @app_commands.command(name="8ball", description="Gives you random answers")
     @app_commands.describe(text_to_send="Ask anything!")

@@ -1,5 +1,6 @@
 import discord
 from discord.ext import commands
+from discord import app_commands
 import json
 import os
 
@@ -32,57 +33,62 @@ class Mute(commands.Cog):
         with open("cogs/jsonfiles/mutes.json", "w") as f:
             json.dump(data, f, indent=4)
 
-    @commands.command()
-    @commands.has_permissions(administrator=True)
-    async def setmuterole(self, ctx, role: discord.Role):
-        mute_role = self.load_mute_data()
-        mute_role[str(ctx.guild.id)] = role.id  # Сохраняем ID вместо имени
-        self.save_mute_data(mute_role)
+    @app_commands.command(name="setmuterole", description="Set the mute role for the server")
+    @app_commands.checks.has_permissions(administrator=True)
+    async def setmuterole(self, interaction: discord.Interaction, role: discord.Role):
+        """Command to set the mute role"""
+        mute_roles = self.load_mute_data()
+        mute_roles[str(interaction.guild.id)] = role.id  # Save role ID instead of name
+        self.save_mute_data(mute_roles)
 
-        conf_embed = discord.Embed(title="Success!", color=discord.Color.green())
-        conf_embed.add_field(name="Mute role has been set!", 
-                             value=f"The mute role has been changed to {role.mention} for this guild.")
-        await ctx.send(embed=conf_embed)
+        embed = discord.Embed(title="✅ Success!", color=discord.Color.green())
+        embed.add_field(name="Mute Role Set", value=f"The mute role has been changed to {role.mention}.")
 
-    @commands.command()
-    @commands.has_permissions(manage_roles=True)
-    async def mute(self, ctx, member: discord.Member):
+        await interaction.response.send_message(embed=embed)
+
+    @app_commands.command(name="mute", description="Mute a user")
+    @app_commands.checks.has_permissions(manage_roles=True)
+    async def mute(self, interaction: discord.Interaction, member: discord.Member):
+        """Mute a user"""
         role_data = self.load_mute_data()
-        mute_role = discord.utils.get(ctx.guild.roles, id=role_data.get(str(ctx.guild.id)))
+        mute_role = discord.utils.get(interaction.guild.roles, id=role_data.get(str(interaction.guild.id)))
 
         if not mute_role:
-            await ctx.send("Error: Mute role is not set or does not exist!")
+            await interaction.response.send_message("❌ Error: Mute role is not set or does not exist!", ephemeral=True)
             return
 
-        if ctx.guild.me.top_role <= mute_role:
-            await ctx.send("Error: I do not have permission to assign this role!")
+        if interaction.guild.me.top_role <= mute_role:
+            await interaction.response.send_message("❌ Error: I do not have permission to assign this role!", ephemeral=True)
             return
 
         await member.add_roles(mute_role)
 
-        conf_embed = discord.Embed(title="Success!", color=discord.Color.green())
-        conf_embed.add_field(name="Muted", value=f"{member.mention} has been muted by {ctx.author.mention}.", inline=False)
-        await ctx.send(embed=conf_embed)
+        embed = discord.Embed(title="✅ Success!", color=discord.Color.green())
+        embed.add_field(name="Muted", value=f"{member.mention} has been muted by {interaction.user.mention}.", inline=False)
 
-    @commands.command()
-    @commands.has_permissions(manage_roles=True)
-    async def unmute(self, ctx, member: discord.Member):
+        await interaction.response.send_message(embed=embed)
+
+    @app_commands.command(name="unmute", description="Unmute a user")
+    @app_commands.checks.has_permissions(manage_roles=True)
+    async def unmute(self, interaction: discord.Interaction, member: discord.Member):
+        """Unmute a user"""
         role_data = self.load_mute_data()
-        mute_role = discord.utils.get(ctx.guild.roles, id=role_data.get(str(ctx.guild.id)))
+        mute_role = discord.utils.get(interaction.guild.roles, id=role_data.get(str(interaction.guild.id)))
 
         if not mute_role:
-            await ctx.send("Error: Mute role is not set or does not exist!")
+            await interaction.response.send_message("❌ Error: Mute role is not set or does not exist!", ephemeral=True)
             return
 
         if mute_role not in member.roles:
-            await ctx.send(f"{member.mention} is not muted.")
+            await interaction.response.send_message(f"❌ {member.mention} is not muted.", ephemeral=True)
             return
 
         await member.remove_roles(mute_role)
 
-        conf_embed = discord.Embed(title="Success!", color=discord.Color.green())
-        conf_embed.add_field(name="Unmuted", value=f"{member.mention} has been unmuted by {ctx.author.mention}.", inline=False)
-        await ctx.send(embed=conf_embed)
+        embed = discord.Embed(title="✅ Success!", color=discord.Color.green())
+        embed.add_field(name="Unmuted", value=f"{member.mention} has been unmuted by {interaction.user.mention}.", inline=False)
+
+        await interaction.response.send_message(embed=embed)
 
     # Error handlers
     @mute.error

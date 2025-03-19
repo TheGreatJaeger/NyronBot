@@ -1,6 +1,7 @@
 import discord
 import json
 from discord.ext import commands
+from discord import app_commands
 
 intents = discord.Intents.default()
 intents.message_content = True
@@ -56,15 +57,15 @@ class Events(commands.Cog):
 
         await log_channel.send(embed=event_embed)
 
-    @commands.command()
-    @commands.has_permissions(administrator=True)
-    async def setlog(self, ctx, channel: discord.TextChannel):
-        """Command to set a log channel"""
-        guild_id = str(ctx.guild.id)
-        self.log_channels[guild_id] = channel.id
-        save_log_channels(self.log_channels)
+    @app_commands.command(name="setlog", description="Set a log channel for server events")
+    @app_commands.checks.has_permissions(administrator=True)
+    async def setlog(self, interaction: discord.Interaction, channel: discord.TextChannel):
+          """Command to set a log channel"""
+          guild_id = str(interaction.guild.id)
+          self.log_channels[guild_id] = channel.id
+          save_log_channels(self.log_channels)
 
-        await ctx.send(f"✅ Log channel has been set: {channel.mention}")
+          await interaction.response.send_message(f"✅ Log channel has been set: {channel.mention}", ephemeral=True)
 
 async def setup(client):
     await client.add_cog(Events(client))

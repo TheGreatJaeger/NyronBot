@@ -1,5 +1,6 @@
 import discord
 from discord.ext import commands
+from discord import app_commands
 from numpy import *
 import numexpr
 
@@ -17,14 +18,14 @@ class Calc(commands.Cog):
   async def on_ready(self):
     print(f"{__name__} is online.")
 
-  @commands.command(aliases=["calc", "solve"])
-  async def calculate(self, ctx, *, expression: str):
-    try:
-        answer = numexpr.evaluate(expression)
-
-        await ctx.send(f"{ctx.author.mention}, {expression} = {answer}")
-    except:
-      await ctx.send(f"{ctx.author.mention}, Error: Invalid Expression.")
+  @app_commands.command(name="calculate", description="Evaluate a mathematical expression")
+  async def calculate(self, interaction: discord.Interaction, expression: str):
+        """Evaluates a mathematical expression"""
+        try:
+            answer = numexpr.evaluate(expression)
+            await interaction.response.send_message(f"🧮 `{expression} = {answer}`", ephemeral=True)
+        except:
+            await interaction.response.send_message("❌ Error: Invalid Expression.", ephemeral=True)
 
 
 async def setup(client):

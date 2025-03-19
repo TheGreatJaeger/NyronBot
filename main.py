@@ -24,6 +24,7 @@ intents.messages = True
 
 client = commands.Bot(command_prefix=get_server_prefix, intents=intents)  # Creates prefix for bot
 
+
 @client.event
 async def on_guild_join(guild):
     with open("cogs/jsonfiles/prefixes.json", "r") as f:

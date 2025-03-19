@@ -1,5 +1,6 @@
 import discord
 from discord.ext import commands
+from discord import app_commands
 import praw
 import random
 import os
@@ -23,16 +24,16 @@ class MemeGenerator(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
-    @commands.command()
-    async def meme(self, ctx):
-        """Sends a random meme from Reddit r/memes"""
-        await ctx.send("🔍 **Searching for a meme...**")
+    @app_commands.command(name="meme", description="Sends a random meme from Reddit r/memes")
+    async def meme(self, interaction: discord.Interaction):
+        """Sends a random meme from Reddit"""
+        await interaction.response.defer()  # Уведомляем Discord, что бот обрабатывает команду
 
         subreddit = reddit.subreddit("memes")
         posts = [post for post in subreddit.hot(limit=50) if not post.stickied]
 
         if not posts:
-            await ctx.send("❌ **Could not find memes, try again later.**")
+            await interaction.followup.send("❌ **Could not find memes, try again later.**")
             return
 
         random_post = random.choice(posts)
@@ -40,7 +41,7 @@ class MemeGenerator(commands.Cog):
         embed = discord.Embed(title=random_post.title, color=discord.Color.blue())
         embed.set_image(url=random_post.url)
 
-        await ctx.send(embed=embed)
+        await interaction.followup.send(embed=embed)
 
 async def setup(bot):
     await bot.add_cog(MemeGenerator(bot))
