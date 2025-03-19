@@ -3,121 +3,129 @@ from discord.ext import commands
 from discord import app_commands
 import json
 import random
+import os
+import time
 
-intents = discord.Intents.default()
-intents.message_content = True
-intents.voice_states = True
-intents.members = True
-intents.messages = True
+ECONOMY_FILE = "cogs/jsonfiles/eco.json"
 
 class Economy(commands.Cog):
     def __init__(self, client):
         self.client = client
+        self.load_data()
+        self.cooldowns = {}  # Новый метод кулдауна
+
+    def load_data(self):
+        """Загружает или создаёт JSON-файл"""
+        if not os.path.exists(ECONOMY_FILE):
+            self.user_eco = {}
+            self.save_data()
+        else:
+            try:
+                with open(ECONOMY_FILE, "r", encoding="utf-8") as f:
+                    self.user_eco = json.load(f)
+            except (json.JSONDecodeError, FileNotFoundError):
+                self.user_eco = {}
+                self.save_data()
+
+    def save_data(self):
+        """Сохраняет данные экономики"""
+        with open(ECONOMY_FILE, "w", encoding="utf-8") as f:
+            json.dump(self.user_eco, f, indent=4)
+
+    def check_cooldown(self, user_id, command, cooldown_time):
+        """Проверяет кулдаун команды"""
+        now = time.time()
+        if user_id in self.cooldowns and command in self.cooldowns[user_id]:
+            elapsed = now - self.cooldowns[user_id][command]
+            if elapsed < cooldown_time:
+                return int(cooldown_time - elapsed)
+        self.cooldowns.setdefault(user_id, {})[command] = now
+        return None  # Кулдауна нет, можно выполнять команду
 
     @commands.Cog.listener()
     async def on_ready(self):
         print(f"{__name__} is ready!")
-        
-    async def cooldown_message(self, ctx):
-        retry_after = ctx.command.get_cooldown_retry_after(ctx)
-        await ctx.send(f"⏳ {ctx.author.mention}, you need to wait {int(retry_after)} seconds before using this command again!")
-          
+
+    async def ensure_response(self, interaction: discord.Interaction):
+        """Гарантирует, что бот отвечает, чтобы избежать зависания"""
+        if not interaction.response.is_done():
+            await interaction.response.defer(thinking=True, ephemeral=False)
+
     @app_commands.command(name="balance", description="Check your balance")
-    @app_commands.checks.cooldown(1, 10, key=lambda i: (i.user.id))
     async def balance(self, interaction: discord.Interaction, member: discord.Member = None):
         """Check user balance"""
-        with open("cogs/jsonfiles/eco.json", "r") as f:
-            user_eco = json.load(f)
+        await self.ensure_response(interaction)
+
+        user_id = str(interaction.user.id)
+        cooldown = self.check_cooldown(user_id, "balance", 10)
+        if cooldown:
+            await interaction.followup.send(f"⏳ Wait **{cooldown} seconds** before checking balance again!", ephemeral=True)
+            return
 
         member = member or interaction.user
-
-        if str(member.id) not in user_eco:
-            user_eco[str(member.id)] = {"Balance": 100, "Deposited": 0}
+        if user_id not in self.user_eco:
+            self.user_eco[user_id] = {"Balance": 100, "Deposited": 0}
 
         embed = discord.Embed(
-            title=f"{member.name}'s Current Balance",
-            description="The current balance of this user.",
+            title=f"{member.name}'s Balance",
             color=discord.Color.green()
         )
-        embed.add_field(name="Current Balance:", value=f"${user_eco[str(member.id)]['Balance']}.", inline=False)
-        embed.add_field(name="Deposited Balance:", value=f"${user_eco[str(member.id)]['Deposited']}.", inline=False)
+        embed.add_field(name="Wallet:", value=f"${self.user_eco[user_id]['Balance']}", inline=False)
+        embed.add_field(name="Bank:", value=f"${self.user_eco[user_id]['Deposited']}", inline=False)
 
-        await interaction.response.send_message(embed=embed)
-        
-    @app_commands.command(name="beg", description="Try your luck and beg for money")
-    @app_commands.checks.cooldown(1, 300, key=lambda i: (i.user.id))
-    async def beg(self, interaction: discord.Interaction):
-        """Beg for money"""
-        with open("cogs/jsonfiles/eco.json", "r") as f:
-            user_eco = json.load(f)
+        self.save_data()
+        await interaction.followup.send(embed=embed)
 
-        user_id = str(interaction.user.id)
-        if user_id not in user_eco:
-            user_eco[user_id] = {"Balance": 100}
-
-        amount = random.randint(-10, 30)
-        user_eco[user_id]["Balance"] += amount
-
-        if amount > 0:
-            message = f"💰 Some kind souls gave you **${amount}**!"
-        elif amount < 0:
-            message = f"💸 Oh no! You got robbed and lost **${abs(amount)}**!"
-        else:
-            message = "😞 You got nothing this time."
-
-        embed = discord.Embed(title="Begging Result", description=message, color=discord.Color.random())
-
-        with open("cogs/jsonfiles/eco.json", "w") as f:
-            json.dump(user_eco, f, indent=4)
-
-        await interaction.response.send_message(embed=embed)
-        
-    @app_commands.command(name="work", description="Work and earn money")
-    @app_commands.checks.cooldown(1, 300, key=lambda i: (i.user.id))
+    @app_commands.command(name="work", description="Earn money by working")
     async def work(self, interaction: discord.Interaction):
         """Earn money by working"""
-        with open("cogs/jsonfiles/eco.json", "r") as f:
-            user_eco = json.load(f)
+        await self.ensure_response(interaction)
 
         user_id = str(interaction.user.id)
-        if user_id not in user_eco:
-            user_eco[user_id] = {"Balance": 100, "Deposited": 0}
+        cooldown = self.check_cooldown(user_id, "work", 300)
+        if cooldown:
+            await interaction.followup.send(f"⏳ Wait **{cooldown} seconds** before using `/work` again!", ephemeral=True)
+            return
+
+        if user_id not in self.user_eco:
+            self.user_eco[user_id] = {"Balance": 100, "Deposited": 0}
 
         amount = random.randint(100, 350)
-        user_eco[user_id]["Balance"] += amount
+        self.user_eco[user_id]["Balance"] += amount
 
         embed = discord.Embed(
-            title="Work Result",
-            description=f"🛠 You worked and earned **${amount}**!",
+            title="Work Completed",
+            description=f"🛠 You earned **${amount}**!",
             color=discord.Color.green()
         )
 
-        with open("cogs/jsonfiles/eco.json", "w") as f:
-            json.dump(user_eco, f, indent=4)
+        self.save_data()
+        await interaction.followup.send(embed=embed)
 
-        await interaction.response.send_message(embed=embed)
-        
     @app_commands.command(name="steal", description="Try to steal money from another user")
-    @app_commands.checks.cooldown(1, 300, key=lambda i: (i.user.id))
     async def steal(self, interaction: discord.Interaction, member: discord.Member):
         """Steal money from another user"""
-        with open("cogs/jsonfiles/eco.json", "r") as f:
-            user_eco = json.load(f)
+        await self.ensure_response(interaction)
 
         user_id = str(interaction.user.id)
+        cooldown = self.check_cooldown(user_id, "steal", 300)
+        if cooldown:
+            await interaction.followup.send(f"⏳ Wait **{cooldown} seconds** before stealing again!", ephemeral=True)
+            return
+
         target_id = str(member.id)
 
-        if user_id not in user_eco:
-            user_eco[user_id] = {"Balance": 100}
-        if target_id not in user_eco:
-            user_eco[target_id] = {"Balance": 100}
+        if user_id not in self.user_eco:
+            self.user_eco[user_id] = {"Balance": 100}
+        if target_id not in self.user_eco:
+            self.user_eco[target_id] = {"Balance": 100}
 
         steal_success = random.choice([True, False])
 
         if steal_success:
-            amount = random.randint(1, 100)
-            user_eco[user_id]["Balance"] += amount
-            user_eco[target_id]["Balance"] -= amount
+            amount = min(random.randint(1, 100), self.user_eco[target_id]["Balance"])
+            self.user_eco[user_id]["Balance"] += amount
+            self.user_eco[target_id]["Balance"] -= amount
 
             embed = discord.Embed(
                 title="Stealing Success!",
@@ -131,64 +139,85 @@ class Economy(commands.Cog):
                 color=discord.Color.red()
             )
 
-        with open("cogs/jsonfiles/eco.json", "w") as f:
-            json.dump(user_eco, f, indent=4)
+        self.save_data()
+        await interaction.followup.send(embed=embed)
 
-        await interaction.response.send_message(embed=embed)
-        
     @app_commands.command(name="deposit", description="Deposit money into your bank")
-    @app_commands.checks.cooldown(1, 300, key=lambda i: (i.user.id))
     async def deposit(self, interaction: discord.Interaction, amount: int):
         """Deposit money into the bank"""
-        with open("cogs/jsonfiles/eco.json", "r") as f:
-            user_eco = json.load(f)
+        await self.ensure_response(interaction)
 
         user_id = str(interaction.user.id)
-        if user_id not in user_eco:
-            user_eco[user_id] = {"Balance": 100, "Deposited": 0}
-
-        if amount > user_eco[user_id]["Balance"]:
-            await interaction.response.send_message("❌ You don't have enough money to deposit.", ephemeral=True)
+        cooldown = self.check_cooldown(user_id, "deposit", 300)
+        if cooldown:
+            await interaction.followup.send(f"⏳ Wait **{cooldown} seconds** before depositing again!", ephemeral=True)
             return
 
-        user_eco[user_id]["Balance"] -= amount
-        user_eco[user_id]["Deposited"] += amount
+        if user_id not in self.user_eco:
+            self.user_eco[user_id] = {"Balance": 100, "Deposited": 0}
 
-        with open("cogs/jsonfiles/eco.json", "w") as f:
-            json.dump(user_eco, f, indent=4)
+        if amount > self.user_eco[user_id]["Balance"]:
+            await interaction.followup.send("❌ Not enough money!")
+            return
 
-        await interaction.response.send_message(f"🏦 You deposited **${amount}** into your bank.")
-	
+        self.user_eco[user_id]["Balance"] -= amount
+        self.user_eco[user_id]["Deposited"] += amount
+
+        self.save_data()
+        await interaction.followup.send(f"🏦 Deposited **${amount}** into your bank.")
+
     @app_commands.command(name="withdraw", description="Withdraw money from your bank")
-    @app_commands.checks.cooldown(1, 300, key=lambda i: (i.user.id))
     async def withdraw(self, interaction: discord.Interaction, amount: int):
         """Withdraw money from the bank"""
-        with open("cogs/jsonfiles/eco.json", "r") as f:
-            user_eco = json.load(f)
+        await self.ensure_response(interaction)
 
         user_id = str(interaction.user.id)
-        if user_id not in user_eco:
-            user_eco[user_id] = {"Balance": 100, "Deposited": 0}
-
-        if amount > user_eco[user_id]["Deposited"]:
-            await interaction.response.send_message("❌ You don't have enough money in your bank.", ephemeral=True)
+        cooldown = self.check_cooldown(user_id, "withdraw", 300)
+        if cooldown:
+            await interaction.followup.send(f"⏳ Wait **{cooldown} seconds** before withdrawing again!", ephemeral=True)
             return
 
-        user_eco[user_id]["Deposited"] -= amount
-        user_eco[user_id]["Balance"] += amount
+        if user_id not in self.user_eco:
+            self.user_eco[user_id] = {"Balance": 100, "Deposited": 0}
 
-        with open("cogs/jsonfiles/eco.json", "w") as f:
-            json.dump(user_eco, f, indent=4)
+        if amount > self.user_eco[user_id]["Deposited"]:
+            await interaction.followup.send("❌ Not enough money in bank!")
+            return
 
-        await interaction.response.send_message(f"🏧 You withdrew **${amount}** from your bank.")
-            
-    @commands.Cog.listener()
-    async def on_command_error(self, ctx, error):
-        """ Handles cooldown errors """
-        if isinstance(error, commands.CommandOnCooldown):
-            await self.cooldown_message(ctx)
+        self.user_eco[user_id]["Deposited"] -= amount
+        self.user_eco[user_id]["Balance"] += amount
+
+        self.save_data()
+        await interaction.followup.send(f"🏧 Withdrawn **${amount}** from bank.")
+        
+    @app_commands.command(name="beg", description="Try your luck and beg for money")
+    async def beg(self, interaction: discord.Interaction):
+        """Beg for money"""
+        await self.ensure_response(interaction)
+
+        user_id = str(interaction.user.id)
+        cooldown = self.check_cooldown(user_id, "beg", 300)
+        if cooldown:
+            await interaction.followup.send(f"⏳ Wait **{cooldown} seconds** before begging again!", ephemeral=True)
+            return
+
+        if user_id not in self.user_eco:
+            self.user_eco[user_id] = {"Balance": 100}
+
+        amount = random.randint(-10, 30)
+        self.user_eco[user_id]["Balance"] += amount
+
+        if amount > 0:
+            message = f"💰 Someone gave you **${amount}**!"
+        elif amount < 0:
+            message = f"💸 You got robbed and lost **${abs(amount)}**!"
         else:
-            raise error
+            message = "😞 Nothing today..."
+
+        embed = discord.Embed(title="Begging Result", description=message, color=discord.Color.random())
+
+        self.save_data()
+        await interaction.followup.send(embed=embed)
 
 async def setup(client):
     await client.add_cog(Economy(client))
