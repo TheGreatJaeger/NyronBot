@@ -91,7 +91,7 @@ class ReportModal(discord.ui.Modal, title="Report User"):
         await interaction.response.send_message("✅ Report submitted!", ephemeral=True)
 
 
-class ReportCog(commands.Cog):
+class Report(commands.Cog):
     def __init__(self, client: commands.Bot):
         self.client = client
 
@@ -118,4 +118,4 @@ class ReportCog(commands.Cog):
 
 
 async def setup(client: commands.Bot):
-    await client.add_cog(ReportCog(client))
+    await client.add_cog(Report(client))

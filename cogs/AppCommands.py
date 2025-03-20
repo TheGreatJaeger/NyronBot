@@ -9,7 +9,7 @@ intents.voice_states = True
 intents.members = True
 intents.messages = True
 
-class AppCommands(commands.Cog):
+class Utility(commands.Cog):
     def __init__(self, client):
         self.client = client
 
@@ -48,4 +48,4 @@ class AppCommands(commands.Cog):
             await interaction.response.send_message(f"Error: {str(e)}", ephemeral=True)
 
 async def setup(client):
-    await client.add_cog(AppCommands(client))
+    await client.add_cog(Utility(client))

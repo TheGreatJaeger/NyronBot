@@ -76,7 +76,7 @@ class ManageTicketView(discord.ui.View):  # Класс кнопок управл
         await asyncio.sleep(5)
         await channel.delete(reason=f"Ticket closed by {interaction.user}")
 
-class TicketCog(commands.Cog):  # Основной класс КОГа
+class Ticket(commands.Cog):  # Основной класс КОГа
     def __init__(self, bot: commands.Bot):
         self.bot = bot
 
@@ -95,4 +95,4 @@ class TicketCog(commands.Cog):  # Основной класс КОГа
         await interaction.response.send_message("✅ Ticket button sent!", ephemeral=True)
 
 async def setup(bot: commands.Bot):
-    await bot.add_cog(TicketCog(bot))
+    await bot.add_cog(Ticket(bot))

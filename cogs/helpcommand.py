@@ -9,20 +9,52 @@ class HelpCommand(commands.Cog):
     @commands.Cog.listener()
     async def on_ready(self):
         print("helpcommand.py is ready!")
-  
-    @app_commands.command(name="help", description="Shows list of commands")
-    async def help(self, interaction: discord.Interaction):
-        embed = discord.Embed(title="Commands list", color=discord.Color.green())
 
-        for cog_name, cog in self.client.cogs.items():  # Заменил self.bot на self.client
+    @app_commands.command(name="help", description="Shows a list of available commands")
+    async def help(self, interaction: discord.Interaction):
+        await interaction.response.defer()  # Избегаем "The application did not respond"
+
+        category_icons = {
+            "Welcome": "⚙️",
+            "Moderation": "🛡️",
+            "Economy": "💰",
+            "Music": "🎵",
+            "VirtualPet": "🎉",
+            "Utility": "🔧",
+            "ServerAutomation": "📌",
+            "Ticket": "🎟️",
+            "LevelSystem": "🔔",
+            "Report": "❓",
+            "Mute": "🤐",
+            "HelpCommand": "📄",
+            "GameGuru": "🖥️",
+            "MemeGenerator": "😂",
+            
+        }
+
+        embed = discord.Embed(
+            title="📜 NyronBot Command List",
+            description="Here is a list of all available commands.",
+            color=discord.Color.dark_blue()
+        )
+        embed.set_thumbnail(url=interaction.client.user.avatar.url)  # Устанавливаем аватар бота
+
+        for cog_name, cog in self.client.cogs.items():
             commands_list = [
-                f"`/{command.name}` - {command.description or 'No description'}"
+                f"🔹 **`/{command.name}`** — {command.description or '*No description*'}"
                 for command in cog.__cog_app_commands__
             ]
             if commands_list:
-                embed.add_field(name=f"📂 {cog_name}", value="\n".join(commands_list), inline=False)
+                icon = category_icons.get(cog_name, "📂")  # Получаем иконку, если нет - стандартная папка
+                embed.add_field(
+                    name=f"{icon} **{cog_name}**",
+                    value="\n".join(commands_list),
+                    inline=False
+                )
 
-        await interaction.response.send_message(embed=embed)
+        embed.set_footer(text=f"Requested by {interaction.user.name}", icon_url=interaction.user.avatar.url)
+
+        await interaction.followup.send(embed=embed)
 
 async def setup(client):
     await client.add_cog(HelpCommand(client))
