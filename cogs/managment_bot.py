@@ -15,6 +15,7 @@ class ServerAutomation(commands.Cog):
         self.moderation_logs = {}
     
     # 1. Auto Role Assignment
+    @app_commands.checks.has_permissions(administrator=True)
     @app_commands.command(name="set_auto_role", description="Set an automatic role for new members.")
     async def set_auto_role(self, interaction: discord.Interaction, role: discord.Role):
         self.auto_roles[interaction.guild.id] = role.id
@@ -31,12 +32,14 @@ class ServerAutomation(commands.Cog):
                     await log_channel.send(f"🎉 {member.mention} joined and received role {role.name}!")
                     
     # 3. Auto Chat Cleanup
+    @app_commands.checks.has_permissions(administrator=True)
     @app_commands.command(name="clear_chat", description="Clear messages in a channel.")
     async def clear_chat(self, interaction: discord.Interaction, amount: int):
         await interaction.channel.purge(limit=amount)
         await interaction.response.send_message(f"🧹 Deleted {amount} messages", ephemeral=True)
     
     # 4. Auto Responses
+    @app_commands.checks.has_permissions(administrator=True)
     @app_commands.command(name="add_auto_response", description="Set up an auto-response for a phrase.")
     async def add_auto_response(self, interaction: discord.Interaction, trigger: str, response: str):
         self.auto_responses[trigger.lower()] = response

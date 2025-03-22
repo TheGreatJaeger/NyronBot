@@ -10,7 +10,9 @@ import time
 class LevelSystem(commands.Cog):
     def __init__(self, client):
         self.client = client
-        self.user_timers = {}  # Dictionary for storing the time of the last experience gained
+        self.user_timers = {}  # XP cooldown per user
+        self.levelup_notify_timers = {}  # Level-up cooldown
+        self.enabled_guilds = set()  # Guilds with level system enabled
 
         self.client.loop.create_task(self.save())
 
@@ -18,26 +20,33 @@ class LevelSystem(commands.Cog):
             with open("cogs/jsonfiles/users.json", "r") as f:
                 self.users = json.load(f)
         except (FileNotFoundError, json.JSONDecodeError):
-            self.users = {}  # If file not found, than create a new one
+            self.users = {}
+
+        try:
+            with open("cogs/jsonfiles/level_enabled.json", "r") as f:
+                self.enabled_guilds = set(json.load(f))
+        except:
+            self.enabled_guilds = set()
 
     def level_up(self, author_id):
-        """Проверяет, можно ли повысить уровень пользователя"""
         current_experience = self.users[author_id]["Experience"]
         current_level = self.users[author_id]["Level"]
-
-        if current_experience >= math.ceil((6 * (current_level ** 4)) / 2.5):
+        required_exp = math.ceil((6 * (current_level ** 4)) / 2.5)
+        if current_experience >= required_exp:
             self.users[author_id]["Level"] += 1
             return True
         return False
 
     async def save(self):
-        """Периодически сохраняет данные в JSON"""
         await self.client.wait_until_ready()
         while not self.client.is_closed():
             with open("cogs/jsonfiles/users.json", "w", encoding="utf-8") as f:
                 json.dump(self.users, f, indent=4)
 
-            await asyncio.sleep(10)  # Saving once in 10 seconds
+            with open("cogs/jsonfiles/level_enabled.json", "w", encoding="utf-8") as f:
+                json.dump(list(self.enabled_guilds), f, indent=4)
+
+            await asyncio.sleep(10)
 
     @commands.Cog.listener()
     async def on_ready(self):
@@ -45,55 +54,77 @@ class LevelSystem(commands.Cog):
 
     @commands.Cog.listener()
     async def on_message(self, message):
-        """Выдаёт опыт раз в 60 секунд"""
-        if message.author.bot:  # Игнорируем ботов
+        if message.author.bot or not message.guild:
             return
-        
+
+        guild_id = message.guild.id
+        if guild_id not in self.enabled_guilds:
+            return  # система выключена
+
         author_id = str(message.author.id)
-        current_time = time.time()
+        now = time.time()
 
-        # Check if 60 seconds have passed since the last experience gained
-        if author_id in self.user_timers and current_time - self.user_timers[author_id] < 60:
-            return  # If not, we don’t give out experience.
+        if author_id in self.user_timers and now - self.user_timers[author_id] < 60:
+            return
+        self.user_timers[author_id] = now
 
-        # Update the time of the last experience gained
-        self.user_timers[author_id] = current_time
-
-        # If user doesn't exist in database, than add him
         if author_id not in self.users:
             self.users[author_id] = {"Level": 1, "Experience": 0}
 
-        # Adding random exp from 5 to 15
-        random_exp = random.randint(5, 15)
-        self.users[author_id]["Experience"] += random_exp
+        self.users[author_id]["Experience"] += random.randint(5, 15)
 
-        # Checking if user has leveled up
         if self.level_up(author_id):
-            level_up_embed = discord.Embed(title="🎉 Level Up!", color=discord.Color.green())
-            level_up_embed.add_field(
+            if author_id in self.levelup_notify_timers and now - self.levelup_notify_timers[author_id] < 180:
+                return
+            self.levelup_notify_timers[author_id] = now
+
+            level = self.users[author_id]["Level"]
+            embed = discord.Embed(title="🎉 Level Up!", color=discord.Color.green())
+            embed.add_field(
                 name="Congratulations!",
-                value=f"{message.author.mention} leveled up to level **{self.users[author_id]['Level']}**!"
+                value=f"{message.author.mention} leveled up to level **{level}**!"
             )
-            await message.channel.send(embed=level_up_embed)
+            await message.channel.send(embed=embed)
 
     @app_commands.command(name="level", description="Check your level and experience")
     async def level(self, interaction: discord.Interaction, user: discord.User = None):
-        """Shows the level of user"""
         user = user or interaction.user
         author_id = str(user.id)
 
         if author_id not in self.users:
             self.users[author_id] = {"Level": 1, "Experience": 0}
 
-        level_card = discord.Embed(
+        embed = discord.Embed(
             title=f"{user.name}'s Level & Experience",
             color=discord.Color.random()
         )
-        level_card.add_field(name="Level:", value=self.users[author_id]["Level"])
-        level_card.add_field(name="Experience:", value=self.users[author_id]["Experience"])
-        level_card.set_footer(text=f"Requested by {interaction.user.name}", icon_url=interaction.user.avatar)
+        embed.add_field(name="Level:", value=self.users[author_id]["Level"])
+        embed.add_field(name="Experience:", value=self.users[author_id]["Experience"])
+        embed.set_footer(text=f"Requested by {interaction.user.name}", icon_url=interaction.user.avatar)
 
-        await interaction.response.send_message(embed=level_card)
+        await interaction.response.send_message(embed=embed)
+
+    # ✅ Включить систему уровней
+    @app_commands.command(name="enable_levels", description="Enable level system for this server.")
+    @app_commands.checks.has_permissions(administrator=True)
+    async def enable_levels(self, interaction: discord.Interaction):
+        self.enabled_guilds.add(interaction.guild.id)
+        await interaction.response.send_message("✅ Level system has been **enabled** on this server.", ephemeral=True)
+
+    # ✅ Отключить систему уровней
+    @app_commands.command(name="disable_levels", description="Disable level system for this server.")
+    @app_commands.checks.has_permissions(administrator=True)
+    async def disable_levels(self, interaction: discord.Interaction):
+        self.enabled_guilds.discard(interaction.guild.id)
+        await interaction.response.send_message("🛑 Level system has been **disabled** on this server.", ephemeral=True)
+
+    @enable_levels.error
+    @disable_levels.error
+    async def permission_error(self, interaction: discord.Interaction, error):
+        if isinstance(error, app_commands.errors.MissingPermissions):
+            await interaction.response.send_message("❌ You need to be an **administrator** to use this command.", ephemeral=True)
+        else:
+            raise error
 
 async def setup(client):
     await client.add_cog(LevelSystem(client))
