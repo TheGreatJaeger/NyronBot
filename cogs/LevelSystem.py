@@ -4,8 +4,12 @@ from discord import app_commands
 import json
 import asyncio
 import math
+import io
+import aiohttp
+from PIL import Image, ImageDraw, ImageFont
 import random
 import time
+import os
 
 class LevelSystem(commands.Cog):
     def __init__(self, client):
@@ -59,7 +63,7 @@ class LevelSystem(commands.Cog):
 
         guild_id = message.guild.id
         if guild_id not in self.enabled_guilds:
-            return  # система выключена
+            return  # system disabled
 
         author_id = str(message.author.id)
         now = time.time()
@@ -88,30 +92,82 @@ class LevelSystem(commands.Cog):
 
     @app_commands.command(name="level", description="Check your level and experience")
     async def level(self, interaction: discord.Interaction, user: discord.User = None):
+        await interaction.response.defer()
+
         user = user or interaction.user
         author_id = str(user.id)
 
         if author_id not in self.users:
             self.users[author_id] = {"Level": 1, "Experience": 0}
 
-        embed = discord.Embed(
-            title=f"{user.name}'s Level & Experience",
-            color=discord.Color.random()
-        )
-        embed.add_field(name="Level:", value=self.users[author_id]["Level"])
-        embed.add_field(name="Experience:", value=self.users[author_id]["Experience"])
-        embed.set_footer(text=f"Requested by {interaction.user.name}", icon_url=interaction.user.avatar)
+        level = self.users[author_id]["Level"]
+        xp = self.users[author_id]["Experience"]
+        required = math.ceil((6 * (level ** 4)) / 2.5)
+        percent = xp / required if required != 0 else 0
 
-        await interaction.response.send_message(embed=embed)
+        # 1. background
+        bg_folder = "cogs/levelcards"
+        card_files = [f for f in os.listdir(bg_folder) if f.endswith((".png", ".jpg", ".jpeg"))]
+        if not card_files:
+            return await interaction.followup.send("❌ No background images found.", ephemeral=True)
+        bg_path = os.path.join(bg_folder, random.choice(card_files))
+        bg = Image.open(bg_path).convert("RGBA").resize((800, 250))
 
-    # ✅ Включить систему уровней
+        # 2. making background darker
+        overlay = Image.new("RGBA", bg.size, (0, 0, 0, 130))
+        bg = Image.alpha_composite(bg, overlay)
+
+        draw = ImageDraw.Draw(bg)
+
+        # 3. avatar
+        async with aiohttp.ClientSession() as session:
+            async with session.get(user.display_avatar.replace(format='png', size=128).url) as resp:
+                avatar_bytes = await resp.read()
+        pfp = Image.open(io.BytesIO(avatar_bytes)).convert("RGBA").resize((100, 100))
+        mask = Image.new("L", pfp.size, 0)
+        draw_mask = ImageDraw.Draw(mask)
+        draw_mask.ellipse((0, 0, 100, 100), fill=255)
+        pfp.putalpha(mask)
+        bg.paste(pfp, (30, 75), pfp)
+
+        # 4. fonts
+        try:
+            font_big = ImageFont.truetype("SouthPark.otf", 28)
+            font_small = ImageFont.truetype("SouthPark.otf", 20)
+        except:
+            return await interaction.followup.send("❌ Font not found.", ephemeral=True)
+
+        # 5. Name and level
+        draw.text((150, 70), f"{user.name}", font=font_big, fill=(255, 165, 0))
+        draw.text((150, 110), f"Level: {level}   XP: {xp}/{required}", font=font_small, fill=(255, 165, 0))
+
+        # 6. Progress bar
+        bar_x = 150
+        bar_y = 150
+        bar_width = 600
+        bar_height = 25
+        outline_color = (255, 255, 255, 180)
+        fill_color = (255, 165, 0, 255)
+        
+        draw.rounded_rectangle((bar_x, bar_y, bar_x + bar_width, bar_y + bar_height), radius=12, fill=(255,255,255,50))
+        draw.rounded_rectangle((bar_x, bar_y, bar_x + int(bar_width * percent), bar_y + bar_height), radius=12, fill=fill_color)
+
+        # 7. send
+        buffer = io.BytesIO()
+        bg.save(buffer, format="PNG")
+        buffer.seek(0)
+
+        file = discord.File(buffer, filename="levelcard.png")
+        await interaction.followup.send(file=file)
+        
+    # ✅ Enable level system
     @app_commands.command(name="enable_levels", description="Enable level system for this server.")
     @app_commands.checks.has_permissions(administrator=True)
     async def enable_levels(self, interaction: discord.Interaction):
         self.enabled_guilds.add(interaction.guild.id)
         await interaction.response.send_message("✅ Level system has been **enabled** on this server.", ephemeral=True)
 
-    # ✅ Отключить систему уровней
+    # ✅ Disable level system
     @app_commands.command(name="disable_levels", description="Disable level system for this server.")
     @app_commands.checks.has_permissions(administrator=True)
     async def disable_levels(self, interaction: discord.Interaction):

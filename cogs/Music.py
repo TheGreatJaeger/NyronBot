@@ -14,7 +14,7 @@ YDL_OPTIONS = {
     'nocheckcertificate': True,
 }
 
-class MusicBot(commands.Cog):
+class Music(commands.Cog):
     def __init__(self, client):
         self.client = client
         self.queue = []
@@ -96,4 +96,4 @@ class MusicBot(commands.Cog):
             await interaction.response.send_message("❌ I'm not in a voice channel!", ephemeral=True)
 
 async def setup(client):
-    await client.add_cog(MusicBot(client))
+    await client.add_cog(Music(client))
