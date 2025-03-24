@@ -5,16 +5,8 @@ import yt_dlp
 import asyncio
 
 FFMPEG_OPTIONS = {'options': '-vn'}
-YDL_OPTIONS = {
-    'format': 'bestaudio',
-    'noplaylist': True,
-    'default_search': 'scsearch',  # Поиск по SoundCloud
-    'quiet': False,
-    'geo_bypass': True,
-    'nocheckcertificate': True,
-}
 
-class Music(commands.Cog):
+class MusicBot(commands.Cog):
     def __init__(self, client):
         self.client = client
         self.queue = []
@@ -25,7 +17,6 @@ class Music(commands.Cog):
 
     @app_commands.command(name="join", description="Bot joins the voice channel")
     async def join(self, interaction: discord.Interaction):
-        """Bot joins the user's voice channel"""
         if interaction.user.voice:
             channel = interaction.user.voice.channel
             if interaction.guild.voice_client is None:
@@ -36,9 +27,16 @@ class Music(commands.Cog):
         else:
             await interaction.response.send_message("❌ You are not in a voice channel!", ephemeral=True)
 
-    @app_commands.command(name="play", description="Plays a song from SoundCloud")
-    async def play(self, interaction: discord.Interaction, search: str):
-        """Play music from SoundCloud"""
+    @app_commands.command(name="play", description="Plays a song from Spotify or SoundCloud")
+    @app_commands.describe(
+        search="Search query or link",
+        source="Choose a platform"
+    )
+    @app_commands.choices(source=[
+        app_commands.Choice(name="SoundCloud", value="scsearch"),
+        app_commands.Choice(name="Spotify", value="ytsearch")  # Spotify через YouTube
+    ])
+    async def play(self, interaction: discord.Interaction, search: str, source: app_commands.Choice[str]):
         if not interaction.user.voice:
             await interaction.response.send_message("❌ You are not in a voice channel!", ephemeral=True)
             return
@@ -49,20 +47,35 @@ class Music(commands.Cog):
         else:
             vc = interaction.guild.voice_client
 
-        await interaction.response.defer()  # Уведомляем Discord, что бот обрабатывает команду
+        await interaction.response.defer()
+
+        ydl_opts = {
+            'format': 'bestaudio/best',
+            'noplaylist': True,
+            'default_search': source.value,
+            'quiet': True,
+        }
 
         try:
-            with yt_dlp.YoutubeDL(YDL_OPTIONS) as ydl:
-                info = ydl.extract_info(f"scsearch:{search}", download=False)
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                info = ydl.extract_info(f"{search}", download=False)
                 if 'entries' in info:
                     info = info['entries'][0]
 
-                url = info.get('url')
-                title = info.get('title', 'Unknown Track')
+                # Найдем подходящий аудиоформат
+                audio_url = None
+                for fmt in info.get("formats", []):
+                    if fmt.get("vcodec") == "none":
+                        audio_url = fmt.get("url")
+                        break
 
-                self.queue.append((url, title))
+                if not audio_url:
+                    raise Exception("No playable audio format found.")
+
+                title = info.get('title', 'Unknown Track')
+                self.queue.append((audio_url, title))
                 await interaction.followup.send(f"🎵 Added to queue: **{title}**")
-        
+
         except Exception as e:
             return await interaction.followup.send(f"❌ Error retrieving audio: `{str(e)}`")
 
@@ -70,7 +83,6 @@ class Music(commands.Cog):
             await self.play_next(interaction)
 
     async def play_next(self, interaction):
-        """Plays the next song in the queue"""
         vc = interaction.guild.voice_client
         if self.queue and vc:
             url, title = self.queue.pop(0)
@@ -87,7 +99,6 @@ class Music(commands.Cog):
 
     @app_commands.command(name="stop", description="Stops the music and leaves the channel")
     async def stop(self, interaction: discord.Interaction):
-        """Stop playing and leave the voice channel"""
         vc = interaction.guild.voice_client
         if vc:
             await vc.disconnect()
@@ -96,4 +107,4 @@ class Music(commands.Cog):
             await interaction.response.send_message("❌ I'm not in a voice channel!", ephemeral=True)
 
 async def setup(client):
-    await client.add_cog(Music(client))
+    await client.add_cog(MusicBot(client))

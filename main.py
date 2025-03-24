@@ -24,7 +24,6 @@ intents.messages = True
 
 client = commands.Bot(command_prefix=get_server_prefix, intents=intents)  # Creates prefix for bot
 
-
 @client.event
 async def on_guild_join(guild):
     with open("cogs/jsonfiles/prefixes.json", "r") as f:
@@ -58,13 +57,6 @@ async def setprefix(interaction: discord.Interaction, newprefix: str):
     await interaction.response.send_message(f"✅ Prefix changed to `{newprefix}`", ephemeral=True)
 
 client.tree.add_command(setprefix)
-
-#bot status
-bot_status = cycle(["!help", "Dota 2", "Getting new devices..", "Developed by Squeeze"])
-
-@tasks.loop(seconds=15)
-async def change_status():
-    await client.change_presence(activity=discord.Game(next(bot_status)))
 
 #Context Menu
 @client.tree.context_menu(name="Quick info")
@@ -114,22 +106,6 @@ async def userinfo(ctx, member: discord.Member = None):
 
     await ctx.send(embed=info_embed)
 
-# Word Filter
-banned_words = ["FUCK", "FUCKOFF", "ASSHOLE", "STFU", "FAT", "MOTHERFUCKER", "DUMBASS", "FAGGOT", "FUCKING"]
-
-@client.event
-async def on_message(message):
-    if message.author == client.user:
-        return
-
-    # word filter
-    for word in banned_words:
-        if word in message.content.lower() or word in message.content.upper():
-            await message.delete()
-            await message.channel.send(f"{message.author.mention} You cannot say that word!")
-
-    await client.process_commands(message)
-
 @client.event
 async def on_guild_join(guild):
     with open("cogs/jsonfiles/mutes.json", "r") as f:
@@ -155,8 +131,10 @@ async def on_guild_remove(guild):
 async def on_ready():
     await client.tree.sync()
     print("Success: Bot is Connected to Discord")
-    change_status.start()
-
+    
+    activity = discord.Game(name="/help | discord.gg/CaCebqQxYs")
+    await client.change_presence(status=discord.Status.online, activity=activity)
+    
 async def load():
     for filename in os.listdir("./cogs"):
         if filename.endswith(".py"):
