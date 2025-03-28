@@ -9,3 +9,10 @@ numexpr
 webdriver_manager
 deep-translator
 google-search-results
+praw
+pillow
+aiohttp
+spotipy 
+youtube-search-python
+google-api-python-client
+requests

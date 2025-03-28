@@ -56,26 +56,30 @@ class Economy(commands.Cog):
         """Check user balance"""
         await self.ensure_response(interaction)
 
-        user_id = str(interaction.user.id)
-        cooldown = self.check_cooldown(user_id, "balance", 10)
+        author_id = str(interaction.user.id)
+        cooldown = self.check_cooldown(author_id, "balance", 10)
+
         if cooldown:
-            await interaction.followup.send(f"⏳ Wait **{cooldown} seconds** before checking balance again!", ephemeral=True)
+            await interaction.followup.send(f"⏳ Wait {cooldown} seconds before checking balance again!", ephemeral=True)
             return
 
         member = member or interaction.user
-        if user_id not in self.user_eco:
-            self.user_eco[user_id] = {"Balance": 100, "Deposited": 0}
+        target_id = str(member.id)
+
+        if target_id not in self.user_eco:
+            self.user_eco[target_id] = {"Balance": 100, "Deposited": 0}
 
         embed = discord.Embed(
             title=f"{member.name}'s Balance",
             color=discord.Color.green()
         )
-        embed.add_field(name="Wallet:", value=f"${self.user_eco[user_id]['Balance']}", inline=False)
-        embed.add_field(name="Bank:", value=f"${self.user_eco[user_id]['Deposited']}", inline=False)
+        embed.add_field(name="Wallet:", value=f"${self.user_eco[target_id]['Balance']}", inline=False)
+        embed.add_field(name="Bank:", value=f"${self.user_eco[target_id]['Deposited']}", inline=False)
 
         self.save_data()
-        await interaction.followup.send(embed=embed)
 
+        await interaction.followup.send(embed=embed)
+        
     @app_commands.command(name="work", description="Earn money by working")
     async def work(self, interaction: discord.Interaction):
         """Earn money by working"""

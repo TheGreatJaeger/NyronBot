@@ -1,8 +1,10 @@
 import discord
 from discord.ext import commands
 from discord import app_commands
-import yt_dlp
 import asyncio
+import yt_dlp
+import os
+import urllib.parse
 
 FFMPEG_OPTIONS = {'options': '-vn'}
 
@@ -27,16 +29,8 @@ class MusicBot(commands.Cog):
         else:
             await interaction.response.send_message("❌ You are not in a voice channel!", ephemeral=True)
 
-    @app_commands.command(name="play", description="Plays a song from Spotify or SoundCloud")
-    @app_commands.describe(
-        search="Search query or link",
-        source="Choose a platform"
-    )
-    @app_commands.choices(source=[
-        app_commands.Choice(name="SoundCloud", value="scsearch"),
-        app_commands.Choice(name="Spotify", value="ytsearch")  # Spotify через YouTube
-    ])
-    async def play(self, interaction: discord.Interaction, search: str, source: app_commands.Choice[str]):
+    @app_commands.command(name="play", description="Plays a song from SoundCloud")
+    async def play(self, interaction: discord.Interaction, search: str):
         if not interaction.user.voice:
             await interaction.response.send_message("❌ You are not in a voice channel!", ephemeral=True)
             return
@@ -49,38 +43,28 @@ class MusicBot(commands.Cog):
 
         await interaction.response.defer()
 
-        ydl_opts = {
-            'format': 'bestaudio/best',
-            'noplaylist': True,
-            'default_search': source.value,
-            'quiet': True,
-        }
-
         try:
+            ydl_opts = {
+                'format': 'bestaudio/best',
+                'noplaylist': True,
+                'default_search': 'scsearch',
+                'quiet': True,
+            }
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                info = ydl.extract_info(f"{search}", download=False)
+                info = ydl.extract_info(search, download=False)
                 if 'entries' in info:
                     info = info['entries'][0]
-
-                # Найдем подходящий аудиоформат
-                audio_url = None
-                for fmt in info.get("formats", []):
-                    if fmt.get("vcodec") == "none":
-                        audio_url = fmt.get("url")
-                        break
-
-                if not audio_url:
-                    raise Exception("No playable audio format found.")
-
+                url = next(f['url'] for f in info['formats'] if f.get('vcodec') == 'none')
                 title = info.get('title', 'Unknown Track')
-                self.queue.append((audio_url, title))
-                await interaction.followup.send(f"🎵 Added to queue: **{title}**")
+
+            self.queue.append((url, title))
+            await interaction.followup.send(f"🎵 Added to queue: **{title}**")
+
+            if not vc.is_playing():
+                await self.play_next(interaction)
 
         except Exception as e:
-            return await interaction.followup.send(f"❌ Error retrieving audio: `{str(e)}`")
-
-        if not vc.is_playing():
-            await self.play_next(interaction)
+            return await interaction.followup.send(f"❌ SoundCloud Error: `{str(e)}`")
 
     async def play_next(self, interaction):
         vc = interaction.guild.voice_client
@@ -94,7 +78,7 @@ class MusicBot(commands.Cog):
                 print(f"Playback error: {e}")
                 await interaction.followup.send(f"❌ Playback error: `{str(e)}`")
         elif vc:
-            await interaction.followup.send("📭 Queue is empty. Disconnecting..")
+            await interaction.followup.send("📭 Queue is empty. Disconnecting...")
             await vc.disconnect()
 
     @app_commands.command(name="stop", description="Stops the music and leaves the channel")

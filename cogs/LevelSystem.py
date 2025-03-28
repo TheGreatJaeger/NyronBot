@@ -63,7 +63,7 @@ class LevelSystem(commands.Cog):
 
         guild_id = message.guild.id
         if guild_id not in self.enabled_guilds:
-            return  # system disabled
+            return  # система выключена
 
         author_id = str(message.author.id)
         now = time.time()
@@ -105,7 +105,7 @@ class LevelSystem(commands.Cog):
         required = math.ceil((6 * (level ** 4)) / 2.5)
         percent = xp / required if required != 0 else 0
 
-        # 1. background
+        # 1. Фон
         bg_folder = "cogs/levelcards"
         card_files = [f for f in os.listdir(bg_folder) if f.endswith((".png", ".jpg", ".jpeg"))]
         if not card_files:
@@ -113,13 +113,13 @@ class LevelSystem(commands.Cog):
         bg_path = os.path.join(bg_folder, random.choice(card_files))
         bg = Image.open(bg_path).convert("RGBA").resize((800, 250))
 
-        # 2. making background darker
+        # 2. Затемнение фона
         overlay = Image.new("RGBA", bg.size, (0, 0, 0, 130))
         bg = Image.alpha_composite(bg, overlay)
 
         draw = ImageDraw.Draw(bg)
 
-        # 3. avatar
+        # 3. Аватарка
         async with aiohttp.ClientSession() as session:
             async with session.get(user.display_avatar.replace(format='png', size=128).url) as resp:
                 avatar_bytes = await resp.read()
@@ -130,18 +130,18 @@ class LevelSystem(commands.Cog):
         pfp.putalpha(mask)
         bg.paste(pfp, (30, 75), pfp)
 
-        # 4. fonts
+        # 4. Шрифты
         try:
             font_big = ImageFont.truetype("SouthPark.otf", 28)
             font_small = ImageFont.truetype("SouthPark.otf", 20)
         except:
             return await interaction.followup.send("❌ Font not found.", ephemeral=True)
 
-        # 5. Name and level
+        # 5. Имя и уровень
         draw.text((150, 70), f"{user.name}", font=font_big, fill=(255, 165, 0))
         draw.text((150, 110), f"Level: {level}   XP: {xp}/{required}", font=font_small, fill=(255, 165, 0))
 
-        # 6. Progress bar
+        # 6. Прогресс-бар
         bar_x = 150
         bar_y = 150
         bar_width = 600
@@ -152,7 +152,7 @@ class LevelSystem(commands.Cog):
         draw.rounded_rectangle((bar_x, bar_y, bar_x + bar_width, bar_y + bar_height), radius=12, fill=(255,255,255,50))
         draw.rounded_rectangle((bar_x, bar_y, bar_x + int(bar_width * percent), bar_y + bar_height), radius=12, fill=fill_color)
 
-        # 7. send
+        # 7. Отправка
         buffer = io.BytesIO()
         bg.save(buffer, format="PNG")
         buffer.seek(0)
@@ -160,14 +160,14 @@ class LevelSystem(commands.Cog):
         file = discord.File(buffer, filename="levelcard.png")
         await interaction.followup.send(file=file)
         
-    # ✅ Enable level system
+    # ✅ Включить систему уровней
     @app_commands.command(name="enable_levels", description="Enable level system for this server.")
     @app_commands.checks.has_permissions(administrator=True)
     async def enable_levels(self, interaction: discord.Interaction):
         self.enabled_guilds.add(interaction.guild.id)
         await interaction.response.send_message("✅ Level system has been **enabled** on this server.", ephemeral=True)
 
-    # ✅ Disable level system
+    # ✅ Отключить систему уровней
     @app_commands.command(name="disable_levels", description="Disable level system for this server.")
     @app_commands.checks.has_permissions(administrator=True)
     async def disable_levels(self, interaction: discord.Interaction):

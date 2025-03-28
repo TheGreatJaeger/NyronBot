@@ -44,7 +44,7 @@ class ServerAutomation(commands.Cog):
     async def add_auto_response(self, interaction: discord.Interaction, trigger: str, response: str):
         self.auto_responses[trigger.lower()] = response
         await interaction.response.send_message(f"✅ Added auto-response: `{trigger}` → `{response}`", ephemeral=True)
-    
+
     # 9. Reminders
     @app_commands.command(name="set_reminder", description="Set a reminder.")
     async def set_reminder(self, interaction: discord.Interaction, time_in_minutes: int, message: str):

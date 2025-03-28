@@ -7,7 +7,7 @@ from discord.ext import commands
 from discord import app_commands
 from discord.ui import View, Button
 
-PET_FILE = "pets.json"
+PET_FILE = "cogs/jsonfiles/pets.json"
 
 class VirtualPet(commands.Cog):
     def __init__(self, bot):

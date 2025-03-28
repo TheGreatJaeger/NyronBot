@@ -107,6 +107,19 @@ class Verification(commands.Cog):
         self.verify_data[guild_id]["enabled"] = False
         self.save_data()
         await interaction.response.send_message("🛑 Verification system disabled.", ephemeral=True)
+        
+     # Erroe handlers
+    async def error_handler(self, interaction: discord.Interaction, error):
+        if isinstance(error, app_commands.MissingPermissions):
+            await interaction.response.send_message("❌ You do not have permission to use this command.", ephemeral=True)
+        else:
+            await interaction.response.send_message("⚠ An error occurred while executing the command.", ephemeral=True)
+
+    @verify_setup.error
+    @verify_enable.error
+    @verify_disable.error
+    async def command_error(self, interaction: discord.Interaction, error):
+        await self.error_handler(interaction, error)
 
 async def setup(client):
     await client.add_cog(Verification(client))
