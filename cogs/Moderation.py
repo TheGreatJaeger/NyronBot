@@ -61,7 +61,7 @@ class Moderation(commands.Cog):
 
         await interaction.response.send_message(embed=embed)
 
-    # Обработка ошибок
+    # Error handler
     async def error_handler(self, interaction: discord.Interaction, error):
         if isinstance(error, app_commands.MissingPermissions):
             await interaction.response.send_message("❌ You do not have permission to use this command.", ephemeral=True)

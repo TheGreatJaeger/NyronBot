@@ -10,53 +10,13 @@ from dotenv import load_dotenv
 load_dotenv(".env")
 TOKEN: str = os.getenv("TOKEN")
 
-def get_server_prefix(client, message):
-    with open("cogs/jsonfiles/prefixes.json", "r") as f:
-        prefix = json.load(f)
-    
-    return prefix.get(str(message.guild.id), '!')
-
 intents = discord.Intents.default()
 intents.message_content = True
 intents.voice_states = True
 intents.members = True
 intents.messages = True
 
-client = commands.Bot(command_prefix=get_server_prefix, intents=intents)  # Creates prefix for bot
-
-@client.event
-async def on_guild_join(guild):
-    with open("cogs/jsonfiles/prefixes.json", "r") as f:
-        prefix = json.load(f)
-
-    prefix[str(guild.id)] = "!"
-
-    with open("cogs/jsonfiles/prefixes.json", "w") as f:
-        json.dump(prefix, f, indent=4)
-
-@client.event
-async def on_guild_remove(guild):
-    with open("cogs/jsonfiles/prefixes.json", "r") as f:
-        prefix = json.load(f)
-
-    prefix.pop(str(guild.id))
-
-    with open("cogs/jsonfiles/prefixes.json", "w") as f:
-        json.dump(prefix, f, indent=4)
-
-@app_commands.command(name="setprefix", description="Set a custom prefix for this server.")
-async def setprefix(interaction: discord.Interaction, newprefix: str):
-    with open("cogs/jsonfiles/prefixes.json", "r") as f:
-        prefix = json.load(f)
-
-    prefix[str(interaction.guild.id)] = newprefix
-
-    with open("cogs/jsonfiles/prefixes.json", "w") as f:
-        json.dump(prefix, f, indent=4)
-    
-    await interaction.response.send_message(f"✅ Prefix changed to `{newprefix}`", ephemeral=True)
-
-client.tree.add_command(setprefix)
+client = commands.Bot(command_prefix="/", intents=intents)  # Creates prefix for bot
 
 #Context Menu
 @client.tree.context_menu(name="Quick info")
@@ -87,7 +47,7 @@ async def ping(interaction: discord.Interaction):
     bot_latency = round(client.latency * 1000)
     await interaction.response.send_message(f"Bot's latency: {bot_latency} ms.")
 
-# userinfo command
+"""userinfo command
 @client.command()
 async def userinfo(ctx, member: discord.Member = None):
     if member is None:
@@ -104,7 +64,7 @@ async def userinfo(ctx, member: discord.Member = None):
     info_embed.add_field(name="Bot User?:", value=member.bot, inline=False)
     info_embed.add_field(name="Creation Date:", value=member.created_at.__format__("%A, %d. %B %Y @ %H:%M:%S"), inline=False)
 
-    await ctx.send(embed=info_embed)
+    await ctx.send(embed=info_embed)"""
 
 @client.event
 async def on_guild_join(guild):
@@ -132,7 +92,7 @@ async def on_ready():
     await client.tree.sync()
     print("Success: Bot is Connected to Discord")
     
-    activity = discord.Game(name="/help | discord.gg/CaCebqQxYs")
+    activity = discord.Game(name="/help | nyronbot.glitch.me")
     await client.change_presence(status=discord.Status.online, activity=activity)
     
 async def load():
